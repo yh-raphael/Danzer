@@ -1,4 +1,4 @@
-### Danzer
+# Danzer
 
 The Deduplication Analyzer
 
