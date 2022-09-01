@@ -1,16 +1,16 @@
 .PHONY: all clean
 .DEFAULT_GOAL := all
 
-LIBS=-lrt -lm -lssl -lcrypto
+LIBS=-lrt -lm -lstdc++fs -lssl -lcrypto
 INCLUDES=-./include
-CFLAGS=-O3 -g
+CFLAGS=-std=c++17 -O3 -g
 
 output = danzer
 
 all: main
 
 main: tracer.cc
-	g++ $(CFLAGS) -o danzer tracer.cc fastcdc.c $(LIBS)
+	g++ $(CFLAGS) -o danzer tracer.cc $(LIBS)
 
 clean:
 	rm $(output)

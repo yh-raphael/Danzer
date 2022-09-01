@@ -67,7 +67,7 @@ namespace danzer{
         return sz;
     }
 
-    uint32_t cut(const uint8_t *src, const uint32_t len, const uint32_t mi, const uint32_t ma, const uint32_t ns, const uint32_t mask_s, const uint32_t mask_l, ofstream *tf_name) {
+    uint32_t cut(const uint8_t *src, const uint32_t len, const uint32_t mi, const uint32_t ma, const uint32_t ns, const uint32_t mask_s, const uint32_t mask_l) {
         uint32_t n, fp = 0, i = (len < mi) ? len : mi;
         n = (ns < len) ? ns : len;
         for (; i < n; i++) {
@@ -100,13 +100,12 @@ namespace danzer{
         return ctx;
     }
 
-    size_t Dedupe::fastcdc_update(fcdc_ctx *ctx, uint8_t *data, size_t len, int end,chunk_vec *cv, ofstream *tf_name) {
+    size_t Dedupe::fastcdc_update(fcdc_ctx *ctx, uint8_t *data, size_t len, int end,chunk_vec *cv) {
         size_t offset = 0;
         while (((len - offset) >= ctx->ma) || (end && (offset < len))) {
             uint32_t cp = cut(data + offset, len - offset, ctx->mi, ctx->ma, ctx->ns,
-                            ctx->mask_s, ctx->mask_l, tf_name);     //Returns the chunk length
+                            ctx->mask_s, ctx->mask_l);     //Returns the chunk length
             chunk blk = {.offset = ctx->pos + offset, .len = cp};
-            cout<<"cp: "<<cp<<endl;
             kv_push(chunk, *cv, blk);
             offset += cp;
         }
@@ -114,30 +113,36 @@ namespace danzer{
         return offset;
     }
 
-    size_t Dedupe::fastcdc_stream(FILE *stream, uint32_t mi, uint32_t av, uint32_t ma, chunk_vec *cv, ofstream *tf_name) {
+    size_t Dedupe::fastcdc_stream(FILE *stream, uint32_t mi, uint32_t av, uint32_t ma, chunk_vec *cv) {
         size_t offset = 0;
         int end = 0;
         fcdc_ctx cdc = fastcdc_init(mi, av, ma), *ctx = &cdc;
         size_t rs = ctx->ma * 4;
         rs = FASTCDC_CLAMP(rs, 0, UINT32_MAX);
-        printf("rs: %ld\n", rs);
+        //printf("rs: %ld\n", rs);
         uint8_t *data = (uint8_t *)malloc(rs);
-        *tf_name << "\nFingerprints: ";
         while (!end) {
             size_t ar = fread(data, 1, rs, stream);
             end = feof(stream);
-            offset += fastcdc_update(ctx, data, ar, end, cv, tf_name);
+            offset += fastcdc_update(ctx, data, ar, end, cv);
             fseek(stream, offset, SEEK_SET);
         }
         free(data);
         return kv_size(*cv);
     }
 
-    void Dedupe::traverse_directory(string directory_path, ofstream* tf_name){
-        //cout<<"Directory traversing started\n";
+    void Dedupe::traverse_directory(string directory_path, ofstream& tf_name){
+        cout<<"Directory traversing started\n";
         for(auto const& dir_entry : filesystem::recursive_directory_iterator(directory_path)){
+            if(filesystem::is_symlink(dir_entry)){
+                cout<<"Symlink encountered\n";
+                continue;
+            }
             if(dir_entry.is_regular_file()){
                 string fname = filesystem::absolute(dir_entry.path().string());
+                cout<<"File name: "<<fname<<" | File size: "<< filesystem::file_size(fname)<<endl;
+                tf_name <<"File Name: " << fname << ", Size: "<< filesystem::file_size(fname);
+		        tf_name << "\nFingerprints: \n";
                 //Pass the file to the appropriate chunking method.
                 //Store the metadata to the trace file
                 //Hash of the file name, file size, file extension.
@@ -146,17 +151,71 @@ namespace danzer{
                     Dedupe::chunk_full_file(fname, tf_name);
                 } else if(this->chunk_mode == 1){
                     //Fixed Size Chunking 
-                    Dedupe::chunk_fixed_size(fname, tf_name);
+                    string buffer;
+                    
+                    uint64_t max_buffer_size = 21474836480;
+                    if(filesystem::file_size(fname) >  max_buffer_size){  //Greater than 100MB
+                        ifstream ifs(fname, ios::binary);
+                        if(!ifs){
+                            cerr<<"Input file error\n";
+                            exit(0);
+                        }
+                        
+                        do{
+                            vector<char> bytes(max_buffer_size);
+                            ifs.read(&bytes[0], max_buffer_size);
+                        
+                            Dedupe::chunk_fixed_size(string(&bytes[0], max_buffer_size), tf_name);
+                        }while(ifs);
+                    } else{
+                        buffer = readFile(fname, tf_name);
+                        Dedupe::chunk_fixed_size(buffer, tf_name);
+                    }
+                    
                 } else{
                     //CDC
-                    Dedupe::chunk_cdc(fname, tf_name);
+                    chunk_vec cv;
+                    kv_init(cv);
+                    string buffer;
+                    FILE *s = fopen((const char *)fname.c_str(), "r");
+                    fastcdc_stream(s, 2048, 2048*2, 2048*4, &cv);   //Need to update it
+                    fclose(s);
+                    cerr<<"Total number of chunks: "<<kv_size(cv)<<endl;;
+                    uint64_t kv_count = 0;
+                    uint64_t chunk_cnt = 0;
+
+                    //uint64_t max_buffer_size = 1048576000;
+                    // if(filesystem::file_size(fname) >  max_buffer_size){  //Greater than 100MB
+                        ifstream ifs(fname, std::ifstream::in);
+                        if(!ifs){
+                            cerr<<"Input file error\n";
+                            exit(0);
+                        }
+                    
+                        do{
+                            int chunk_length = kv_A(cv, chunk_cnt).len;
+                            if(chunk_length == 0)
+                                break;
+                            //cerr<<"chunk_length: "<<chunk_length<<endl;
+                            vector<char> bytes(chunk_length);
+                            ifs.read(&bytes[0], chunk_length);
+                        
+                            // Dedupe::chunk_cdc(string(&bytes[0], max_buffer_size), tf_name, &cv, &kv_count);
+                            Dedupe::chunk_cdc(string(&bytes[0], chunk_length), tf_name);
+                            chunk_cnt +=1;
+                        }while(ifs);
+                    // } else{
+                    //     buffer = readFile(fname, tf_name);
+                    //     Dedupe::chunk_cdc(buffer, tf_name, &cv, &kv_count);
+                    // }
+                    kv_destroy(cv);
                 }
             }
         }
     }
 
 
-    void Dedupe::chunk_full_file(string file_name, ofstream* trace_file){
+    void Dedupe::chunk_full_file(string file_name, ofstream& trace_file){
         cout<<"Full file chunk: "<<file_name<<endl;
         //Consider file as a single chunk
         unsigned char temp_fp[SHA_DIGEST_LENGTH];
@@ -167,31 +226,28 @@ namespace danzer{
   
         std::string fp = GetHexRepresentation(temp_fp, SHA_DIGEST_LENGTH);
 
-        *trace_file << "\nFingerprint: "+fp;
+        trace_file << "\nFingerprint: "+fp;
     }
 
-    void Dedupe::chunk_fixed_size(string file_name, ofstream* trace_file){
+    void Dedupe::chunk_fixed_size(string buffer, ofstream &trace_file){
         //partition the file into fixed size chunks
-        string buffer = readFile(file_name, trace_file);
         uint64_t f_size = buffer.length();
-
         if(buffer.empty()){
             cout<<"Buffer empty\n";
             return;
         }
         uint64_t f_pos = 0;
-        uint64_t chunk_num = 0;
-
-        *trace_file << "Size: "+ f_size;
-        *trace_file << "\nFingerprints: \n";
+        
+        //*trace_file->write("File Name: "+ file_name+ ", Size: "+ f_size+"\n");
+        //trace_file->write("Fingerprints: \n");
         
         uint64_t file_size = f_size;
-        while(f_size > 0){
+        while(f_pos < file_size){
             const char *chunk;
             if(f_pos > file_size){
                 break;
             }
-            
+                
             if((f_pos + chunk_size) > file_size){
                 string tmp_chunk = buffer.substr(f_pos);
                 if(chunk_size > tmp_chunk.length()){
@@ -207,28 +263,63 @@ namespace danzer{
             unsigned char temp_fp[SHA_DIGEST_LENGTH];
             SHA1((const unsigned char *)chunk, chunk_size, temp_fp);
             string fp = GetHexRepresentation(temp_fp, SHA_DIGEST_LENGTH);
-            *trace_file << fp+"\n";
-            chunk_num += 1;
+            trace_file << fp+"\n";
         }
-        *trace_file << "Total number of chunks: "<< chunk_num<<"\n";
-        //delete buffer;
     }
 
-    void Dedupe::chunk_cdc(string file_name, ofstream* trace_file){
+    void Dedupe::chunk_cdc(string buffer, ofstream& trace_file){
+        unsigned char temp_fp[SHA_DIGEST_LENGTH];
+        const char *chunk = buffer.c_str();
+        int tmp_chunk_size = buffer.length();
+        SHA1((const unsigned char *)chunk, tmp_chunk_size, temp_fp);
+        string fp = GetHexRepresentation(temp_fp, SHA_DIGEST_LENGTH);
+        trace_file << fp+"\n";
+    }
+
+    void Dedupe::chunk_cdc(string buffer, ofstream& trace_file, chunk_vec *cv, uint64_t *kv_count){
         //parition the file based on window size of cdc
         //first read the file and then pass the buffer
-        chunk_vec cv;
-        kv_init(cv);
-        string buffer = readFile(file_name, trace_file);
-        FILE *s = fopen((const char *)file_name.c_str(), "r");
-        //fastcdc_stream(s, 65536 / 4, 65536, 65536 * 4, &cv);
-        fastcdc_stream(s, 1024, 1024*2, 1024*4, &cv, trace_file);
-        *trace_file << "Total number of chunks: " << kv_size(cv) <<"\n";
-        printf("kv_size: %ld\n", kv_size(cv));
-        /*for (int i = 0; i < kv_size(cv); i++)
-            printf("%08lu|%08lu\n", kv_A(cv, i).offset, kv_A(cv, i).len);*/
-        kv_destroy(cv);
-        //fclose(s);
+        if(buffer.empty()){
+            return;
+        }
+        uint64_t f_size = buffer.length();
+        cerr<<"Buffer length: "<<f_size<<endl;
+        uint64_t f_pos = 0;
+        uint64_t file_size = f_size;
+        uint64_t chunk_cnt = *kv_count;
+        cerr<<"chunk_cnt: "<<chunk_cnt<<endl;
+        int tmp_chunk_size = 0;
+        while(f_pos < file_size){
+            // cerr<<"f_pos: "<<f_pos<<endl;
+            const char *chunk;
+            if(f_pos > file_size){
+                break;
+            }
+            
+            tmp_chunk_size = kv_A(*cv, chunk_cnt).len;
+            if(chunk_cnt > kv_size(*cv)){
+                cerr<<"Chunk count increased the cv size. chunk_cnt: "<<chunk_cnt<<endl;
+            }
+            if((f_pos + tmp_chunk_size) > file_size){
+                string tmp_chunk = buffer.substr(f_pos);
+                if(tmp_chunk_size > tmp_chunk.length()){
+                    chunk = string(tmp_chunk_size - tmp_chunk.length(), '0').c_str();   //Fill constructor of string class
+                } else{
+                    chunk = tmp_chunk.c_str();
+                }
+            } else{
+                chunk =  buffer.substr(f_pos, tmp_chunk_size).c_str();
+                //cerr<<"Else - tmp_chunk_size: "<<tmp_chunk_size<<"\n";
+            }
+            f_pos += tmp_chunk_size;
+            f_size -= tmp_chunk_size;
+            chunk_cnt += 1;
+            unsigned char temp_fp[SHA_DIGEST_LENGTH];
+            SHA1((const unsigned char *)chunk, tmp_chunk_size, temp_fp);
+            string fp = GetHexRepresentation(temp_fp, SHA_DIGEST_LENGTH);
+            trace_file << fp+"\n";
+        }
+        *kv_count = chunk_cnt;
     }
 
     string Dedupe::GetHexRepresentation(const unsigned char *Bytes, size_t Length) {
@@ -242,20 +333,20 @@ namespace danzer{
         return ret;
     }
 
-    string Dedupe::readFile(const string &fileName, ofstream* tf_name){
+    string Dedupe::readFile(const string &fileName, ofstream& tf_name){
         ifstream ifs(fileName.c_str(), ios::binary);
         if(!ifs){
             cout<<"File openning failed\n";
             exit(0);
         } 
 
-		streampos ifs_start, ifs_end;
-		ifs_start = ifs.tellg();
+        streampos ifs_start, ifs_end;
+        ifs_start = ifs.tellg();
         ifs.seekg(0, ios::end);
         ifs_end = ifs.tellg();
-		ifstream::pos_type fileSize = ifs_end - ifs_start;
-        *tf_name << "File name: "+fileName;
-		ifs.seekg(0, ios::beg);
+	    ifstream::pos_type fileSize = ifs_end - ifs_start;
+        //*tf_name << "File name: "+fileName;
+	    ifs.seekg(0, ios::beg);
 
         vector<char> bytes(fileSize);
         ifs.read(&bytes[0], fileSize);
@@ -268,9 +359,10 @@ namespace danzer{
 int main(int argc, char **argv){
         uint64_t chunk_size = 0;
         string directory_path;
+        string output_file;
         int chunk_mode = 0;
         int c;
-        while ((c = getopt(argc, argv, "s:m:i:")) != -1)
+        while ((c = getopt(argc, argv, "s:m:i:o:")) != -1)
         {
             switch (c)
             {
@@ -283,21 +375,24 @@ int main(int argc, char **argv){
             case 'i':
                 directory_path = optarg;
                 break;
+            case 'o':
+                output_file = optarg;
+                break;
             default:
                 break;
             }
         }
         danzer::Dedupe *dedup = new danzer::Dedupe(chunk_mode, chunk_size, 0);
         ofstream tracefile;
-        tracefile.open("tracefile.txt", ios::out);
+        tracefile.open(output_file, ios::out);
         if(!tracefile){
             cout<<"Out file error\n";
             exit(0);
         } 
+        
+        dedup->traverse_directory(directory_path, tracefile);
 
-        dedup->traverse_directory(directory_path, &tracefile);
-
-        cout<<"Done\n";
+        //cout<<"Done\n";
 
         return 0;
 
@@ -314,3 +409,4 @@ int main(int argc, char **argv){
   dedup->chunk_cdc(f_name, &tracefile);
   return 0;
 }*/
+
