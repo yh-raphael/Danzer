@@ -131,18 +131,61 @@ namespace danzer{
         return kv_size(*cv);
     }
 
-    void Dedupe::traverse_directory(string directory_path, ofstream& tf_name){
+    void FStat::traverse_directory (string directory_path, ofstream& output_file) {
+        cout << "File Statistics session started . . ." << endl;
+
+        // Iterate through whole directory.
+        for (auto const& dir_entry : filesystem::recursive_directory_iterator(directory_path))
+        {
+            if (filesystem::is_symlink(dir_entry)) {
+                cout << "Symlink encountered !" << endl;
+                continue;
+            }
+
+            if (dir_entry.is_regular_file()) {
+                string fname = filesystem::absolute(dir_entry.path().string());
+
+                cout << "File name: " << fname << endl;
+                cout << "File size: " << filesystem::file_size(fname) << endl;
+
+                // output_file << "File Name: " << fname << endl;
+                // output_file << "File Size: " << filesystem::file_size(fname) << endl;
+		        
+                fstat_table[fname] = filesystem::file_size(fname);
+            }
+        }
+
+        // Traverse an unordered map.
+        for (auto x : fstat_table)
+        {
+            // cout << x.first << " " << x.second << endl;
+            total_file_count ++;
+            total_file_size += x.second;
+        }
+
+        mean_file_size = (long long) ((double) total_file_size / (double) total_file_count);
+
+        cout << total_file_count << endl;
+        cout << total_file_size << endl;
+        cout << mean_file_size << endl;
+
+    }
+
+    void Dedupe::traverse_directory (string directory_path, ofstream& tf_name) {
         cout<<"Directory traversing started\n";
-        for(auto const& dir_entry : filesystem::recursive_directory_iterator(directory_path)){
+        for (auto const& dir_entry : filesystem::recursive_directory_iterator(directory_path))
+        {
             if(filesystem::is_symlink(dir_entry)){
                 cout<<"Symlink encountered\n";
                 continue;
             }
             if(dir_entry.is_regular_file()){
                 string fname = filesystem::absolute(dir_entry.path().string());
-                cout<<"File name: "<<fname<<" | File size: "<< filesystem::file_size(fname)<<endl;
-                tf_name <<"File Name: " << fname << ", Size: "<< filesystem::file_size(fname);
-		        tf_name << "\nFingerprints: \n";
+                cout << "File name: " << fname << endl;
+                cout << "File size: " << filesystem::file_size(fname) << endl;
+                tf_name << "File Name: " << fname << endl;
+                tf_name << "File Size: " << filesystem::file_size(fname) << endl;
+		        tf_name << "Fingerprints: " << endl;
                 //Pass the file to the appropriate chunking method.
                 //Store the metadata to the trace file
                 //Hash of the file name, file size, file extension.
@@ -356,16 +399,21 @@ namespace danzer{
     }
 }
 
-int main(int argc, char **argv){
+int main(int argc, char **argv)
+{
         uint64_t chunk_size = 0;
         string directory_path;
         string output_file;
         int chunk_mode = 0;
         int c;
-        while ((c = getopt(argc, argv, "s:m:i:o:")) != -1)
+        int fstat_flag = 0;
+        while ((c = getopt(argc, argv, "f:s:m:i:o:")) != -1)
         {
             switch (c)
             {
+            case 'f':
+                fstat_flag = atoi(optarg);
+                break;
             case 's':
                 chunk_size = atoi(optarg);
                 break;
@@ -382,21 +430,43 @@ int main(int argc, char **argv){
                 break;
             }
         }
-        danzer::Dedupe *dedup = new danzer::Dedupe(chunk_mode, chunk_size, 0);
-        ofstream tracefile;
-        tracefile.open(output_file, ios::out);
-        if(!tracefile){
-            cout<<"Out file error\n";
-            exit(0);
-        } 
-        
-        dedup->traverse_directory(directory_path, tracefile);
+
+        if (fstat_flag == 1) {
+            danzer::FStat *fstat = new danzer::FStat();
+            ofstream fstat_file;
+
+            fstat_file.open(output_file, ios::out);
+            if (!fstat_file) {
+                cout << "Out file error" << endl;
+                exit(0);
+            } 
+
+            fstat->traverse_directory(directory_path, fstat_file);
+
+            cout << "File Statistics session ended . . ." << endl;
+
+            return 0;
+        }
+
+        else {
+            danzer::Dedupe *dedup = new danzer::Dedupe(chunk_mode, chunk_size, 0);
+            ofstream tracefile;
+
+            tracefile.open(output_file, ios::out);
+            if(!tracefile){
+                cout<<"Out file error\n";
+                exit(0);
+            } 
+            
+            dedup->traverse_directory(directory_path, tracefile);
+        }
+
 
         //cout<<"Done\n";
 
         return 0;
-
 }
+
 /*int main(int argc, char *argv[]) {
   danzer::Dedupe *dedup = new  danzer::Dedupe(1, 1024, 0);
   ofstream tracefile;
