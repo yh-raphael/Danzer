@@ -132,7 +132,7 @@ namespace danzer{
     }
 
     void FStat::traverse_directory (string directory_path, ofstream& output_file) {
-        cout << "File Statistics session started . . ." << endl;
+        cout << "File Statistics session start . . ." << endl;
 
         // Iterate through whole directory.
         for (auto const& dir_entry : filesystem::recursive_directory_iterator(directory_path))
@@ -165,10 +165,11 @@ namespace danzer{
 
         mean_file_size = (long long) ((double) total_file_size / (double) total_file_count);
 
-        cout << total_file_count << endl;
-        cout << total_file_size << endl;
-        cout << mean_file_size << endl;
+        output_file << "total_file_count : " << total_file_count << endl;
+        output_file << "total_file_size  : " << total_file_size << endl;
+        output_file << "mean_file_size   : " << mean_file_size << endl;
 
+        return;
     }
 
     void Dedupe::traverse_directory (string directory_path, ofstream& tf_name) {
@@ -443,7 +444,7 @@ int main(int argc, char **argv)
 
             fstat->traverse_directory(directory_path, fstat_file);
 
-            cout << "File Statistics session ended . . ." << endl;
+            cout << "File Statistics session end . . ." << endl;
 
             return 0;
         }
