@@ -165,12 +165,90 @@ namespace danzer{
 
         mean_file_size = (long long) ((double) total_file_size / (double) total_file_count);
 
-        output_file << "total_file_count : " << total_file_count << endl;
-        output_file << "total_file_size  : " << total_file_size << endl;
-        output_file << "mean_file_size   : " << mean_file_size << endl;
+        output_file << "total_file_count," << total_file_count << endl;
+        output_file << "total_file_size," << total_file_size << endl;
+        output_file << "mean_file_size," << mean_file_size << endl;
 
         return;
     }
+
+    void FStat::measure_file_sizes (string directory_path, ofstream& output_file)
+    {
+        cout << "Measuring file sizes session start . . ." << endl;
+
+        cout << "Iterate through whole directory . . ." << endl;
+        // Iterate through whole directory.
+        for (auto const& dir_entry : filesystem::recursive_directory_iterator(directory_path))
+        {
+            if (filesystem::is_symlink(dir_entry)) {
+                cout << "Symlink encountered !" << endl;
+                continue;
+            }
+
+            if (dir_entry.is_regular_file()) {
+                string fname = filesystem::absolute(dir_entry.path().string());
+
+                // cout << "File name: " << fname << endl;
+                // cout << "File size: " << filesystem::file_size(fname) << endl;
+		        
+                measure_table[filesystem::file_size(fname)] = fname;
+            }
+        }
+
+        cout << endl;
+        cout << "Print the map containing file size information . . ." << endl;
+        // Traverse a map.
+        cout << "-- length: " << measure_table.size() << endl;
+
+        int percentile_10 = measure_table.size() * 0.1; //cout << percentile_10 << endl;
+        int percentile_25 = measure_table.size() * 0.25; //cout << percentile_25 << endl;
+        int percentile_50 = measure_table.size() * 0.5; //cout << percentile_50 << endl;
+        int percentile_75 = measure_table.size() * 0.75; //cout << percentile_75 << endl;
+        int percentile_90 = measure_table.size() * 0.9; //cout << percentile_90 << endl;
+
+        int count = 0;
+        for (auto x : measure_table)
+        {
+            //cout << count << "      " << x.first << "            " << x.second << endl;
+            //output_file << x.second << ", " << x.first << endl;
+
+            total_file_count ++;
+            total_file_size += x.first;
+
+            if (count == percentile_10) {
+                cout        << "10%    " << count << "      " << x.first << "            " << x.second << endl;
+                output_file << "10%    " << count << "      " << x.first << "            " << x.second << endl;
+            }
+            else if (count == percentile_25) {
+                cout        << "25%    " << count << "      " << x.first << "            " << x.second << endl;
+                output_file << "25%    " << count << "      " << x.first << "            " << x.second << endl;
+            }
+            else if (count == percentile_50) {
+                cout        << "50%    " << count << "      " << x.first << "            " << x.second << endl;
+                output_file << "50%    " << count << "      " << x.first << "            " << x.second << endl;
+            }
+            else if (count == percentile_75) {
+                cout        << "75%    " << count << "      " << x.first << "            " << x.second << endl;
+                output_file << "75%    " << count << "      " << x.first << "            " << x.second << endl;
+            }
+            else if (count == percentile_90) {
+                cout        << "90%    " << count << "      " << x.first << "            " << x.second << endl;
+                output_file << "90%    " << count << "      " << x.first << "            " << x.second << endl;
+            }
+
+            count++;
+        }
+
+        mean_file_size = (long long) ((double) total_file_size / (double) total_file_count);
+
+        output_file << endl;
+        output_file << "total_file_count," << total_file_count << endl;
+        output_file << "total_file_size," << total_file_size << endl;
+        output_file << "mean_file_size," << mean_file_size << endl;
+
+        return;
+    }
+
 
     void Dedupe::traverse_directory (string directory_path, ofstream& tf_name) {
         cout<<"Directory traversing started\n";
@@ -444,6 +522,24 @@ int main(int argc, char **argv)
 
             fstat->traverse_directory(directory_path, fstat_file);
 
+            cout << "File Statistics session end . . ." << endl;
+
+            return 0;
+        }
+
+        else if (fstat_flag == 2) {
+            danzer::FStat *fstat = new danzer::FStat();
+            ofstream fstat_file;
+
+            fstat_file.open(output_file, ios::out);
+            if (!fstat_file) {
+                cout << "Out file error" << endl;
+                exit(0);
+            } 
+
+            fstat->measure_file_sizes(directory_path, fstat_file);
+
+            cout << endl;
             cout << "File Statistics session end . . ." << endl;
 
             return 0;

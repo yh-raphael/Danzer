@@ -15,6 +15,7 @@
 #include "uthash.h"
 
 #include <unordered_map>
+#include <map>
 
 using namespace std;
 
@@ -109,6 +110,7 @@ namespace danzer{
     long long total_file_size;
     long long mean_file_size;
     unordered_map<string, long long> fstat_table;
+    map<long long, string> measure_table;
 
   public:
     FStat () {
@@ -116,7 +118,9 @@ namespace danzer{
       total_file_size = 0;
       mean_file_size = 0;
     }
-    void traverse_directory (string directory_path, ofstream& fstat_file);
+    void traverse_directory (string directory_path, ofstream& output_file);
+
+    void measure_file_sizes (string directory_path, ofstream& output_file);
   
   };
 }
