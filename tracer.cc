@@ -207,6 +207,12 @@ namespace danzer{
         int percentile_75 = measure_table.size() * 0.75; //cout << percentile_75 << endl;
         int percentile_90 = measure_table.size() * 0.9; //cout << percentile_90 << endl;
 
+        int fs_10 = 0;
+        int fs_25 = 0;
+        int fs_50 = 0;
+        int fs_75 = 0;
+        int fs_90 = 0;
+
         int count = 0;
         for (auto x : measure_table)
         {
@@ -219,26 +225,34 @@ namespace danzer{
             if (count == percentile_10) {
                 cout        << "10%    " << count << "      " << x.first << "            " << x.second << endl;
                 output_file << "10%, " << count << ", " << x.first << ", " << x.second << endl;
+                fs_10 = x.first;
             }
             else if (count == percentile_25) {
                 cout        << "25%    " << count << "      " << x.first << "            " << x.second << endl;
                 output_file << "25%, " << count << ", " << x.first << ", " << x.second << endl;
+                fs_25 = x.first;
             }
             else if (count == percentile_50) {
                 cout        << "50%    " << count << "      " << x.first << "            " << x.second << endl;
                 output_file << "50%, " << count << ", " << x.first << ", " << x.second << endl;
+                fs_50 = x.first;
             }
             else if (count == percentile_75) {
                 cout        << "75%    " << count << "      " << x.first << "            " << x.second << endl;
                 output_file << "75%, " << count << ", " << x.first << ", " << x.second << endl;
+                fs_75 = x.first;
             }
             else if (count == percentile_90) {
                 cout        << "90%    " << count << "      " << x.first << "            " << x.second << endl;
                 output_file << "90%, " << count << ", " << x.first << ", " << x.second << endl;
+                fs_90 = x.first;
             }
 
             count++;
         }
+        cout << fs_10 << ", , " << fs_25 << ", , " << fs_50 << ", , " << fs_75 << ", , " << fs_90 << endl;
+        output_file << fs_10 << ", , " << fs_25 << ", , " << fs_50 << ", , " << fs_75 << ", , " << fs_90 << endl;
+
 
         mean_file_size = (long long) ((double) total_file_size / (double) total_file_count);
 
