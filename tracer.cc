@@ -199,6 +199,7 @@ namespace danzer{
         cout << "Print the map containing file size information . . ." << endl;
         // Traverse a map.
         cout << "-- length: " << measure_table.size() << endl;
+        output_file << "-- length: " << measure_table.size() << endl;
 
         int percentile_10 = measure_table.size() * 0.1; //cout << percentile_10 << endl;
         int percentile_25 = measure_table.size() * 0.25; //cout << percentile_25 << endl;
@@ -217,23 +218,23 @@ namespace danzer{
 
             if (count == percentile_10) {
                 cout        << "10%    " << count << "      " << x.first << "            " << x.second << endl;
-                output_file << "10%    " << count << "      " << x.first << "            " << x.second << endl;
+                output_file << "10%, " << count << ", " << x.first << ", " << x.second << endl;
             }
             else if (count == percentile_25) {
                 cout        << "25%    " << count << "      " << x.first << "            " << x.second << endl;
-                output_file << "25%    " << count << "      " << x.first << "            " << x.second << endl;
+                output_file << "25%, " << count << ", " << x.first << ", " << x.second << endl;
             }
             else if (count == percentile_50) {
                 cout        << "50%    " << count << "      " << x.first << "            " << x.second << endl;
-                output_file << "50%    " << count << "      " << x.first << "            " << x.second << endl;
+                output_file << "50%, " << count << ", " << x.first << ", " << x.second << endl;
             }
             else if (count == percentile_75) {
                 cout        << "75%    " << count << "      " << x.first << "            " << x.second << endl;
-                output_file << "75%    " << count << "      " << x.first << "            " << x.second << endl;
+                output_file << "75%, " << count << ", " << x.first << ", " << x.second << endl;
             }
             else if (count == percentile_90) {
                 cout        << "90%    " << count << "      " << x.first << "            " << x.second << endl;
-                output_file << "90%    " << count << "      " << x.first << "            " << x.second << endl;
+                output_file << "90%, " << count << ", " << x.first << ", " << x.second << endl;
             }
 
             count++;
@@ -242,9 +243,9 @@ namespace danzer{
         mean_file_size = (long long) ((double) total_file_size / (double) total_file_count);
 
         output_file << endl;
-        output_file << "total_file_count," << total_file_count << endl;
-        output_file << "total_file_size," << total_file_size << endl;
-        output_file << "mean_file_size," << mean_file_size << endl;
+        output_file << "total_file_count, " << total_file_count << endl;
+        output_file << "total_file_size, " << total_file_size << endl;
+        output_file << "mean_file_size, " << mean_file_size << endl;
 
         return;
     }
