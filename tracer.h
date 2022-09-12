@@ -103,6 +103,9 @@ namespace danzer{
     void traverse_directory(string directory_path, ofstream&);
     string GetHexRepresentation(const unsigned char *Bytes, size_t Length);
     string readFile(const string &fileName, ofstream&);
+
+    void measure_file_extensions (string directory_path, ofstream& output_file);
+
   };
 
   class FStat {
@@ -121,6 +124,7 @@ namespace danzer{
     void traverse_directory (string directory_path, ofstream& output_file);
 
     void measure_file_sizes (string directory_path, ofstream& output_file);
+
   
   };
 }

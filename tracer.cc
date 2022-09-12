@@ -131,7 +131,8 @@ namespace danzer{
         return kv_size(*cv);
     }
 
-    void FStat::traverse_directory (string directory_path, ofstream& output_file) {
+    void FStat::traverse_directory (string directory_path, ofstream& output_file)
+    {
         cout << "File Statistics session start . . ." << endl;
 
         // Iterate through whole directory.
@@ -201,19 +202,19 @@ namespace danzer{
         cout << "-- length: " << measure_table.size() << endl;
         output_file << "-- length: " << measure_table.size() << endl;
 
-        int percentile_10 = measure_table.size() * 0.1; //cout << percentile_10 << endl;
-        int percentile_25 = measure_table.size() * 0.25; //cout << percentile_25 << endl;
-        int percentile_50 = measure_table.size() * 0.5; //cout << percentile_50 << endl;
-        int percentile_75 = measure_table.size() * 0.75; //cout << percentile_75 << endl;
-        int percentile_90 = measure_table.size() * 0.9; //cout << percentile_90 << endl;
+        long long percentile_10 = measure_table.size() * 0.1; //cout << percentile_10 << endl;
+        long long percentile_25 = measure_table.size() * 0.25; //cout << percentile_25 << endl;
+        long long percentile_50 = measure_table.size() * 0.5; //cout << percentile_50 << endl;
+        long long percentile_75 = measure_table.size() * 0.75; //cout << percentile_75 << endl;
+        long long percentile_90 = measure_table.size() * 0.9; //cout << percentile_90 << endl;
 
-        int fs_10 = 0;
-        int fs_25 = 0;
-        int fs_50 = 0;
-        int fs_75 = 0;
-        int fs_90 = 0;
+        long long fs_10 = 0;
+        long long fs_25 = 0;
+        long long fs_50 = 0;
+        long long fs_75 = 0;
+        long long fs_90 = 0;
 
-        int count = 0;
+        long long count = 0;
         for (auto x : measure_table)
         {
             //cout << count << "      " << x.first << "            " << x.second << endl;
@@ -264,6 +265,78 @@ namespace danzer{
         return;
     }
 
+    void Dedupe::measure_file_extensions (string directory_path, ofstream& tf_stream)
+    {
+        cout << "Measuring file extensions session start . . ." << endl;
+
+        cout << "Iterate through whole directory . . ." << endl;
+        for (auto const& dir_entry : filesystem::recursive_directory_iterator(directory_path))
+        {
+            if (filesystem::is_symlink(dir_entry)) {
+                cout << "Symlink encountered" << endl;
+                continue;
+            }
+
+            if (dir_entry.is_regular_file()) {
+                string fname = filesystem::absolute(dir_entry.path().string());
+
+                cout << "File name: " << fname << endl;
+                cout << "File size: " << filesystem::file_size(fname) << endl;
+
+                tf_stream << "File Name: " << fname << endl;
+                tf_stream << "File Size: " << filesystem::file_size(fname) << endl;
+
+                // Parse a string of file extension.
+                size_t end = fname.length();
+                size_t cur = fname.rfind('.');
+                string file_extension;
+
+                if (cur == string::npos)
+	            	file_extension = "none";                                // no file extension
+                else 
+                    file_extension = fname.substr(cur + 1, end);
+
+                cout << "File extension: " << file_extension << endl << endl;
+                tf_stream << "File Extension: " << file_extension << endl;
+
+		        tf_stream << "Fingerprints: " << endl;
+
+                // Full file 
+                if (this->chunk_mode == 0) {
+                    Dedupe::chunk_full_file(fname, tf_stream);
+                }
+                // Fixed size chunking 
+                else if (this->chunk_mode == 1) {
+                    string buffer;
+                    
+                    uint64_t max_buffer_size = 21474836480;                 // 20 * 1024 * 1024 * 1024 = 20GB
+                    if (filesystem::file_size(fname) > max_buffer_size) {   // Greater than 100MB
+                        ifstream ifs(fname, ios::binary);
+                        if (!ifs) {
+                            cerr << "Input file error\n";
+                            exit(0);
+                        }
+                        
+                        do {
+                            vector<char> bytes(max_buffer_size);
+                            ifs.read(&bytes[0], max_buffer_size);
+                        
+                            Dedupe::chunk_fixed_size(string (&bytes[0], max_buffer_size), tf_stream);
+                        } while (ifs);
+                    }
+                    else {
+                        buffer = readFile(fname, tf_stream);
+                        Dedupe::chunk_fixed_size(buffer, tf_stream);
+                    }
+                }
+            }
+        }
+
+
+        
+
+        return;
+    }
 
     void Dedupe::traverse_directory (string directory_path, ofstream& tf_name) {
         cout<<"Directory traversing started\n";
@@ -556,6 +629,24 @@ int main(int argc, char **argv)
 
             cout << endl;
             cout << "File Statistics session end . . ." << endl;
+
+            return 0;
+        }
+
+        else if (fstat_flag == 3) {
+            danzer::Dedupe *dedup = new danzer::Dedupe(chunk_mode, chunk_size, 0);
+            ofstream tracefile;
+
+            tracefile.open(output_file, ios::out);
+            if (!tracefile) {
+                cout << "Out file error" << endl;
+                exit(0);
+            } 
+
+            dedup->measure_file_extensions(directory_path, tracefile);
+
+            cout << endl;
+            cout << "Measuring file extensions session end . . ." << endl;
 
             return 0;
         }
