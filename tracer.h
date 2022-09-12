@@ -16,6 +16,7 @@
 
 #include <unordered_map>
 #include <map>
+#include <utility>
 
 using namespace std;
 
@@ -108,12 +109,14 @@ namespace danzer{
 
   };
 
-  class FStat {
+  class FStat
+  {
     long long total_file_count;
     long long total_file_size;
     long long mean_file_size;
-    unordered_map<string, long long> fstat_table;
-    map<long long, string> measure_table;
+    
+    //unordered_map<string, long long> fstat_table;
+    vector <pair <long long, string>> fsize_table;
 
   public:
     FStat () {
@@ -121,10 +124,14 @@ namespace danzer{
       total_file_size = 0;
       mean_file_size = 0;
     }
-    void traverse_directory (string directory_path, ofstream& output_file);
 
+    //void traverse_directory (string directory_path, ofstream& output_file);
+
+    // -f option 1
     void measure_file_sizes (string directory_path, ofstream& output_file);
 
+    // -f option 2
+    void measure_cumulative_fs (string directory_path, ofstream& output_file);
   
   };
 }
