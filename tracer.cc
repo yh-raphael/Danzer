@@ -301,19 +301,20 @@ namespace danzer{
         return;
     }
 
+
+
     /*
         -f option 2: 
         cumulative file size percentile
     */
     void FStat::measure_cumulative_fs (string directory_path, ofstream& output_file)
     {
-        cout << "Cumulative distribution session start . . ." << endl;
+        cout << "** Cumulative distribution session start . . ." << endl;
 
-        cout << "Iterate through whole directory . . ." << endl;
 
         long long dir_capacity = 0;
-        int cc = 0;
-        // Iterate through whole directory.
+        cout << "[1] Iterate through whole directory . . ." << endl;
+        // (1) Iterate through whole directory.
         for (auto const& dir_entry : filesystem::recursive_directory_iterator(directory_path))
         {
             if (filesystem::is_symlink(dir_entry)) {
@@ -324,91 +325,116 @@ namespace danzer{
             if (dir_entry.is_regular_file()) {
                 string fname = filesystem::absolute(dir_entry.path().string());
 
-                cout << "File name: " << fname << endl;
-                cout << "File size: " << filesystem::file_size(fname) << endl;
-		        
-                //fsize_table[filesystem::file_size(fname)] = fname;
+                // cout << "File name: " << fname << endl;
+                // cout << "File size: " << filesystem::file_size(fname) << endl;
 
-                //cout << filesystem::file_size(fname) << endl;
+                fsize_table.push_back({filesystem::file_size(fname), fname});
+
                 dir_capacity += filesystem::file_size(fname);
-
-                cc++;
             }
         }
-        cout << "cc == " << cc << endl;
-        cout << "dir_capacity == " << dir_capacity << endl;
+        cout        << "dir_capacity == " << dir_capacity << endl;
+        output_file << "dir_capacity == " << dir_capacity << endl << endl;
+
 
         cout << endl;
-        cout << "Print the map containing file size information . . ." << endl;
-        // Traverse a map.
-        cout << "-- length: " << fsize_table.size() << endl;
+        cout << "[2] Analyze the file size table information . . ." << endl;
+
+        cout        << "-- length: " << fsize_table.size() << endl;
         output_file << "-- length: " << fsize_table.size() << endl;
 
-        long long percentile_10 = fsize_table.size() * 0.1; //cout << percentile_10 << endl;
-        long long percentile_25 = fsize_table.size() * 0.25; //cout << percentile_25 << endl;
-        long long percentile_50 = fsize_table.size() * 0.5; //cout << percentile_50 << endl;
-        long long percentile_75 = fsize_table.size() * 0.75; //cout << percentile_75 << endl;
-        long long percentile_90 = fsize_table.size() * 0.9; //cout << percentile_90 << endl;
+        // (2) Sort the list.
+        sort(fsize_table.begin(), fsize_table.end());
+        // for (auto x : fsize_table)
+        //     cout << x.first << "               " << x.second << endl;
+        // cout << endl;
 
-        long long fs_10 = 0;
-        long long fs_25 = 0;
-        long long fs_50 = 0;
-        long long fs_75 = 0;
-        long long fs_90 = 0;
+
+        // (3) Calculate specific percentile file count values.
+        // In order to avoid numerical overflow, use 8 bytes integer type!
+        long long c_percentile_10 = dir_capacity * 0.1; //cout << percentile_10 << endl;
+        long long c_percentile_25 = dir_capacity * 0.25; //cout << percentile_25 << endl;
+        long long c_percentile_50 = dir_capacity * 0.5; //cout << percentile_50 << endl;
+        long long c_percentile_75 = dir_capacity * 0.75; //cout << percentile_75 << endl;
+        long long c_percentile_90 = dir_capacity * 0.9; //cout << percentile_90 << endl;
+
+        long long c_fs_10 = 0;
+        long long c_fs_25 = 0;
+        long long c_fs_50 = 0;
+        long long c_fs_75 = 0;
+        long long c_fs_90 = 0;
 
         long long count = 0;
-        for (auto x = fsize_table.begin(); x != fsize_table.end(); x++)
+
+        long long sum_capacity = 0;
+        // (4) Iterate the list one more time - check the corresponding file sizes for each file count percentile.
+        for (auto x : fsize_table)
         {
-            cout << count << "      " << x->first << "            " << x->second << endl;
+            //cout << count << "      " << x.first << "            " << x.second << endl;
             //output_file << x.second << ", " << x.first << endl;
 
             total_file_count ++;
-            total_file_size += x->first;
+            total_file_size += x.first;
 
-            // if (count == percentile_10) {
-            //     // cout        << "10%    " << count << "      " << x.first << "            " << x.second << endl;
-            //     output_file << "10%, " << count << ", " << x.first << ", " << x.second << endl;
-            //     fs_10 = x.first;
-            // }
-            // else if (count == percentile_25) {
-            //     // cout        << "25%    " << count << "      " << x.first << "            " << x.second << endl;
-            //     output_file << "25%, " << count << ", " << x.first << ", " << x.second << endl;
-            //     fs_25 = x.first;
-            // }
-            // else if (count == percentile_50) {
-            //     // cout        << "50%    " << count << "      " << x.first << "            " << x.second << endl;
-            //     output_file << "50%, " << count << ", " << x.first << ", " << x.second << endl;
-            //     fs_50 = x.first;
-            // }
-            // else if (count == percentile_75) {
-            //     // cout        << "75%    " << count << "      " << x.first << "            " << x.second << endl;
-            //     output_file << "75%, " << count << ", " << x.first << ", " << x.second << endl;
-            //     fs_75 = x.first;
-            // }
-            // else if (count == percentile_90) {
-            //     // cout        << "90%    " << count << "      " << x.first << "            " << x.second << endl;
-            //     output_file << "90%, " << count << ", " << x.first << ", " << x.second << endl;
-            //     fs_90 = x.first;
-            // }
+            if      (c_fs_10 == 0 && total_file_size >= c_percentile_10) {
+                cout        << "10%    " << count << "      " << x.first << "            " << x.second << endl;
+                output_file << "10%, " << count << ", " << x.first << ", " << x.second << endl;
+                c_fs_10 = x.first;      // assign
+            }
+            else if (c_fs_25 == 0 && total_file_size >= c_percentile_25) {
+                cout        << "25%    " << count << "      " << x.first << "            " << x.second << endl;
+                output_file << "25%, " << count << ", " << x.first << ", " << x.second << endl;
+                c_fs_25 = x.first;      // assign
+            }
+            else if (c_fs_50 == 0 && total_file_size >= c_percentile_50) {
+                cout        << "50%    " << count << "      " << x.first << "            " << x.second << endl;
+                output_file << "50%, " << count << ", " << x.first << ", " << x.second << endl;
+                c_fs_50 = x.first;      // assign
+            }
+            else if (c_fs_75 == 0 && total_file_size >= c_percentile_75) {
+                cout        << "75%    " << count << "      " << x.first << "            " << x.second << endl;
+                output_file << "75%, " << count << ", " << x.first << ", " << x.second << endl;
+                c_fs_75 = x.first;      // assign
+            }
+            else if (c_fs_90 == 0 && total_file_size >= c_percentile_90) {
+                cout        << "90%    " << count << "      " << x.first << "            " << x.second << endl;
+                output_file << "90%, " << count << ", " << x.first << ", " << x.second << endl;
+                c_fs_90 = x.first;
+            }
 
-            //cout << x.first << endl;
             count++;
         }
-        cout << fs_10 << ", , " << fs_25 << ", , " << fs_50 << ", , " << fs_75 << ", , " << fs_90 << endl;
-        output_file << fs_10 << ", , " << fs_25 << ", , " << fs_50 << ", , " << fs_75 << ", , " << fs_90 << endl;
 
 
+        cout << "\n";
+        cout << "[3] Calculate the aggregate information . . ." << endl;
+        // (5) Additionally, let's calcualte the mean file size as well.
         mean_file_size = (long long) ((double) total_file_size / (double) total_file_count);
+
+        cout        << "total_file_count : " << total_file_count << endl;
+        cout        << "total_file_size  : " << total_file_size << endl;
+        cout        << "mean_file_size   : " << mean_file_size << endl;
 
         output_file << endl;
         output_file << "total_file_count, " << total_file_count << endl;
         output_file << "total_file_size, " << total_file_size << endl;
         output_file << "mean_file_size, " << mean_file_size << endl;
 
-        cout << "total_file_size == " << total_file_size << endl;
+
+        // (6) csv format
+        cout        << endl;
+        cout        << total_file_count << ", " << total_file_size << ", " << mean_file_size << ", " << 
+        c_fs_10 << ", " << c_fs_25 << ", " << c_fs_50 << ", " << c_fs_75 << ", " << c_fs_90 << endl;
+
+        output_file << endl;
+        output_file << total_file_count << ", " << total_file_size << ", " << mean_file_size << ", " << 
+        c_fs_10 << ", " << c_fs_25 << ", " << c_fs_50 << ", " << c_fs_75 << ", " << c_fs_90 << endl;
+
 
         return;
     }
+
+
 
     /*
         -f option 3: 
@@ -795,7 +821,7 @@ int main(int argc, char **argv)
             fstat->measure_cumulative_fs(directory_path, fstat_file);
 
             cout << endl;
-            cout << "Cumulative distribution session end . . ." << endl;
+            cout << "** Cumulative distribution session end . . ." << endl;
 
             return 0;
         }
