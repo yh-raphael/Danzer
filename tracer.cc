@@ -203,7 +203,8 @@ namespace danzer{
                 dir_capacity += filesystem::file_size(fname);
             }
         }
-        cout << "dir_capacity == " << dir_capacity << endl;
+        cout        << "dir_capacity == " << dir_capacity << endl;
+        output_file << "dir_capacity == " << dir_capacity << endl << endl;
 
 
         cout << endl;
@@ -272,10 +273,7 @@ namespace danzer{
             count++;
         }
 
-        cout        << fs_10 << ", , " << fs_25 << ", , " << fs_50 << ", , " << fs_75 << ", , " << fs_90 << endl << endl;
-        output_file << fs_10 << ", , " << fs_25 << ", , " << fs_50 << ", , " << fs_75 << ", , " << fs_90 << endl << endl;
-
-
+        cout << "\n";
         cout << "[3] Calculate the aggregate information . . ." << endl;
         // (5) Additionally, let's calcualte the mean file size as well.
         mean_file_size = (long long) ((double) total_file_size / (double) total_file_count);
@@ -288,6 +286,17 @@ namespace danzer{
         output_file << "total_file_count, " << total_file_count << endl;
         output_file << "total_file_size, " << total_file_size << endl;
         output_file << "mean_file_size, " << mean_file_size << endl;
+
+
+        // (6) csv format
+        cout        << endl;
+        cout        << total_file_count << ", " << total_file_size << ", " << mean_file_size << ", " << 
+        fs_10 << ", " << fs_25 << ", " << fs_50 << ", " << fs_75 << ", " << fs_90 << endl;
+
+        output_file << endl;
+        output_file << total_file_count << ", " << total_file_size << ", " << mean_file_size << ", " << 
+        fs_10 << ", " << fs_25 << ", " << fs_50 << ", " << fs_75 << ", " << fs_90 << endl;
+
 
         return;
     }
