@@ -309,7 +309,7 @@ namespace danzer{
     */
     void FStat::measure_cumulative_fs (string directory_path, ofstream& output_file)
     {
-        cout << "** Cumulative distribution session start . . ." << endl;
+        cout << "* Cumulative distribution session start . . ." << endl;
 
 
         long long dir_capacity = 0;
@@ -440,11 +440,12 @@ namespace danzer{
         -f option 3: 
         file extension
     */
-    void Dedupe::measure_file_extensions (string directory_path, ofstream& tf_stream)
+    void FStat::measure_file_extensions (string directory_path, ofstream& output_file)
     {
-        cout << "Measuring file extensions session start . . ." << endl;
+        cout << "** Measuring file extensions session start . . ." << endl;
 
-        cout << "Iterate through whole directory . . ." << endl;
+        // (1) Iterate through whole directory.
+        cout << "[1] Iterate through whole directory . . ." << endl;
         for (auto const& dir_entry : filesystem::recursive_directory_iterator(directory_path))
         {
             if (filesystem::is_symlink(dir_entry)) {
@@ -455,11 +456,11 @@ namespace danzer{
             if (dir_entry.is_regular_file()) {
                 string fname = filesystem::absolute(dir_entry.path().string());
 
-                cout << "File name: " << fname << endl;
-                cout << "File size: " << filesystem::file_size(fname) << endl;
+                // cout << "File name: " << fname << endl;
+                // cout << "File size: " << filesystem::file_size(fname) << endl;
 
-                tf_stream << "File Name: " << fname << endl;
-                tf_stream << "File Size: " << filesystem::file_size(fname) << endl;
+                // tf_stream << "File Name: " << fname << endl;
+                // tf_stream << "File Size: " << filesystem::file_size(fname) << endl;
 
                 // Parse a string of file extension.
                 size_t end = fname.length();
@@ -471,44 +472,17 @@ namespace danzer{
                 else 
                     file_extension = fname.substr(cur + 1, end);
 
-                cout << "File extension: " << file_extension << endl << endl;
-                tf_stream << "File Extension: " << file_extension << endl;
+                cout        << "File extension: " << file_extension << endl;
+                output_file << "File Extension: " << file_extension << endl;
 
-		        tf_stream << "Fingerprints: " << endl;
-
-                // Full file 
-                if (this->chunk_mode == 0) {
-                    Dedupe::chunk_full_file(fname, tf_stream);
-                }
-                // Fixed size chunking 
-                else if (this->chunk_mode == 1) {
-                    string buffer;
-                    
-                    uint64_t max_buffer_size = 21474836480;                 // 20 * 1024 * 1024 * 1024 = 20GB
-                    if (filesystem::file_size(fname) > max_buffer_size) {   // Greater than 100MB
-                        ifstream ifs(fname, ios::binary);
-                        if (!ifs) {
-                            cerr << "Input file error\n";
-                            exit(0);
-                        }
-                        
-                        do {
-                            vector<char> bytes(max_buffer_size);
-                            ifs.read(&bytes[0], max_buffer_size);
-                        
-                            Dedupe::chunk_fixed_size(string (&bytes[0], max_buffer_size), tf_stream);
-                        } while (ifs);
-                    }
-                    else {
-                        buffer = readFile(fname, tf_stream);
-                        Dedupe::chunk_fixed_size(buffer, tf_stream);
-                    }
-                }
+                // (2) Make hash table for file extension.
+                fe_table[file_extension] ++;
             }
         }
 
 
-        
+        for (auto x : fe_table)
+            cout << x.first << "        " << x.second << endl;
 
         return;
     }
@@ -538,8 +512,8 @@ namespace danzer{
                     //Fixed Size Chunking 
                     string buffer;
                     
-                    uint64_t max_buffer_size = 21474836480;
-                    if(filesystem::file_size(fname) >  max_buffer_size){  //Greater than 100MB
+                    uint64_t max_buffer_size = 10737418240;                 // 10 x 1024 x 1024 x 1024 = 10G
+                    if(filesystem::file_size(fname) >  max_buffer_size){
                         ifstream ifs(fname, ios::binary);
                         if(!ifs){
                             cerr<<"Input file error\n";
@@ -821,25 +795,25 @@ int main(int argc, char **argv)
             fstat->measure_cumulative_fs(directory_path, fstat_file);
 
             cout << endl;
-            cout << "** Cumulative distribution session end . . ." << endl;
+            cout << "* Cumulative distribution session end . . ." << endl;
 
             return 0;
         }
 
         else if (fstat_flag == 3) {
-            danzer::Dedupe *dedup = new danzer::Dedupe(chunk_mode, chunk_size, 0);
-            ofstream tracefile;
+            danzer::FStat *fe = new danzer::FStat();
+            ofstream fe_file;
 
-            tracefile.open(output_file, ios::out);
-            if (!tracefile) {
+            fe_file.open(output_file, ios::out);
+            if (!fe_file) {
                 cout << "Out file error" << endl;
                 exit(0);
             } 
 
-            dedup->measure_file_extensions(directory_path, tracefile);
+            fe->measure_file_extensions(directory_path, fe_file);   ////////////////////////// TODO!! start here
 
             cout << endl;
-            cout << "Measuring file extensions session end . . ." << endl;
+            cout << "** Measuring file extensions session end . . ." << endl;
 
             return 0;
         }
