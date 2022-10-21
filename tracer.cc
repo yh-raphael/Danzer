@@ -497,11 +497,12 @@ namespace danzer{
             }
             if(dir_entry.is_regular_file()){
                 string fname = filesystem::absolute(dir_entry.path().string());
+
                 cout << "File name: " << fname << endl;
                 cout << "File size: " << filesystem::file_size(fname) << endl;
-                tf_name << "File Name: " << fname << endl;
-                tf_name << "File Size: " << filesystem::file_size(fname) << endl;
-		        tf_name << "Fingerprints: " << endl;
+
+                tf_name << "File Name: " << fname << ", Size: " << filesystem::file_size(fname) << '\n';
+		        tf_name << "Fingerprints: \n";
                 //Pass the file to the appropriate chunking method.
                 //Store the metadata to the trace file
                 //Hash of the file name, file size, file extension.
