@@ -513,7 +513,7 @@ namespace danzer{
                     //Fixed Size Chunking 
                     string buffer;
                     
-                    uint64_t max_buffer_size = 10737418240;                 // 10 x 1024 x 1024 x 1024 = 10G
+                    uint64_t max_buffer_size = 25769803776;                 // 24 x 1024 x 1024 x 1024 = 24G = 25,769,803,776
                     if(filesystem::file_size(fname) >  max_buffer_size){
                         ifstream ifs(fname, ios::binary);
                         if(!ifs){
