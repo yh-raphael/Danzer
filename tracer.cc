@@ -1,4 +1,5 @@
 #include "tracer.h"
+#include <cstring>
 namespace danzer{
     
     #define FASTCDC_CLAMP(x, a, b) ((x < (a)) ? (a) : ((x > b) ? b : x))
@@ -611,7 +612,7 @@ namespace danzer{
             if((f_pos + chunk_size) > file_size){
                 string tmp_chunk = buffer.substr(f_pos);
                 if(chunk_size > tmp_chunk.length()){
-                    chunk = string(chunk_size - tmp_chunk.length(), '0').c_str();   //Fill constructor of string class
+                    chunk = (tmp_chunk + string(chunk_size - tmp_chunk.length(), '0')).c_str();   //Fill constructor of string class
                 } else{
                     chunk = tmp_chunk.c_str();
                 }
